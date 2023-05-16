@@ -25,8 +25,8 @@
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
-#define SLAVE_B// change to MASTER SLAVE_A or SLAVE_B
-
+#define MASTER// change to MASTER SLAVE_A or SLAVE_B
+#define SLAVE_A
 
 /* UART instance and clock */
 #define MASTER_UART UART3
