@@ -5,10 +5,10 @@
  *      Author: Nico
  */
 
-#ifndef LIN1D4_DRIVER_CFG_H_
-#define LIN1D4_DRIVER_CFG_H_
+#ifndef LIN1D3_DRIVER_CFG_H_
+#define LIN1D3_DRIVER_CFG_H_
 
-#define lin1d4_max_supported_messages_per_node_cfg_d	(16)
+#define lin1d3_max_supported_messages_per_node_cfg_d	(16)
 
 #define CALC_PARITY
 //#define CALC_CHECKSUM
