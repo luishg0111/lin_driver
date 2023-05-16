@@ -25,7 +25,8 @@
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
-#define SLAVE_B // change to MASTER SLAVE_A or SLAVE_B
+#define MASTER // change to MASTER SLAVE_A or SLAVE_B
+#define SLAVE_A
 
 /* UART instance and clock */
 #define MASTER_UART UART3
@@ -159,7 +160,7 @@ static void test_task(void *pvParameters)
 	node_config.skip_uart_init = 0;
 	memset(node_config.messageTable,0, (sizeof(node_config.messageTable[0])*lin1d3_max_supported_messages_per_node_cfg_d));
 	node_config.messageTable[0].ID = app_message_id_1_d;
-	node_config.messageTable[0].rx = 1;
+	node_config.messageTable[0].rx = 0;
 	node_config.messageTable[0].handler = message_1_callback_slave;
 	/* Init Slave Node*/
 	slave_handle = lin1d3_InitNode(node_config);
@@ -328,13 +329,12 @@ static void	message_1_callback_slave(void* message)
 		button1_pressed = 0;
 		button2_pressed = 0;
 		PRINTF("LED GREEN \r\n");
-		//GPIO_PortClear(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 		GPIO_PortClear(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
 	}
 	else{
 		PRINTF("Slave got wrong data %d,%d\r\n", message_data[0], message_data[1]);
 	}
 
-	message_data[1]= 0x0f;
+	message_data[1]= 0x0F;
 }
 #endif
