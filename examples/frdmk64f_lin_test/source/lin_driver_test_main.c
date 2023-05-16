@@ -26,8 +26,6 @@
  * Definitions
  ******************************************************************************/
 #define MASTER // change to MASTER SLAVE_A or SLAVE_B
-#define SLAVE_A
-
 
 /* UART instance and clock */
 #define MASTER_UART UART3
@@ -64,8 +62,10 @@
  ******************************************************************************/
 static void test_task(void *pvParameters);
 
+#if defined(SLAVE_A)
 static void	message_1_callback_local_slave(void* message);
 static void	message_2_callback_local_slave(void* message);
+#endif
 
 #if defined(SLAVE_B)
 static void	message_1_callback_slave(void* message);
@@ -75,7 +75,9 @@ static void	message_1_callback_slave(void* message);
  ******************************************************************************/
 extern volatile bool button2_pressed;
 extern volatile bool button1_pressed;
+#if defined(SLAVE_A)
 static uint8_t ledStatus = 0;
+#endif
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -124,7 +126,9 @@ static void test_task(void *pvParameters)
 {
 	int error;
 	lin1d3_nodeConfig_t node_config;
+#if defined(MASTER)
 	lin1d3_handle_t* master_handle;
+#endif
 #if defined(SLAVE_B)
 	lin1d3_handle_t* slave_handle;
 #endif
@@ -154,13 +158,9 @@ static void test_task(void *pvParameters)
 	node_config.irq = LOCAL_SLAVE_UART_RX_TX_IRQn;
 	node_config.skip_uart_init = 0;
 	memset(node_config.messageTable,0, (sizeof(node_config.messageTable[0])*lin1d3_max_supported_messages_per_node_cfg_d));
-	/* Comment this lines if not using a transiver */
 	node_config.messageTable[0].ID = app_message_id_1_d;
 	node_config.messageTable[0].rx = 1;
 	node_config.messageTable[0].handler = message_1_callback_slave;
-	node_config.messageTable[1].ID = app_message_id_2_d;
-	node_config.messageTable[1].rx = 0;
-	node_config.messageTable[1].handler = message_2_callback_slave;
 	/* Init Slave Node*/
 	slave_handle = lin1d3_InitNode(node_config);
 #endif
@@ -184,21 +184,23 @@ static void test_task(void *pvParameters)
 	local_slave_handle = lin1d3_InitNode(node_config);
 #endif
 
-
-
-	if((NULL == master_handle)
-#if defined(SLAVE_B)
-		|| (NULL == slave_handle)
+	if(
+#if defined(MASTER)
+		(NULL == master_handle)
 #endif
 #if defined(SLAVE_A)
 		|| (NULL == local_slave_handle)
+#endif
+#if defined(SLAVE_B)
+		 (NULL == slave_handle)
 #endif
 	   )
 	{
 		PRINTF(" Init failed!! \r\n");
 		error = kStatus_Fail;
 	}
-	else {
+	else
+	{
 		error = kStatus_Success;
 	}
 
@@ -227,7 +229,7 @@ static void test_task(void *pvParameters)
 }
 
 
-
+#if defined(SLAVE_A)
 static void	message_1_callback_local_slave(void* message)
 {
 	uint8_t* message_data = (uint8_t*)message;
@@ -296,9 +298,10 @@ static void	message_2_callback_local_slave(void* message)
 	}
 	PRINTF("Local Slave got response to message 1 %d,%d\r\n", message_data[0], message_data[1]);
 }
+#endif
 
 #if defined(SLAVE_B)
-static void	message_2_callback_slave(void* message)
+static void	message_1_callback_slave(void* message)
 {
 	uint8_t* message_data = (uint8_t*)message;
 	PRINTF("Slave B\r\n");

@@ -257,16 +257,6 @@
 							<tool id="com.crt.advproject.tool.debug.debug.55220320" name="MCU Debugger" superClass="com.crt.advproject.tool.debug.debug"/>
 						</toolChain>
 					</folderInfo>
-					<folderInfo id="com.crt.advproject.config.exe.debug.1638122860.945433268" name="/" resourcePath="source">
-						<toolChain id="com.crt.advproject.toolchain.exe.debug.1495752523" name="NXP MCU Tools" superClass="com.crt.advproject.toolchain.exe.debug" unusedChildren="">
-							<tool id="com.crt.advproject.cpp.exe.debug.431948699" name="MCU C++ Compiler" superClass="com.crt.advproject.cpp.exe.debug.1993985118"/>
-							<tool id="com.crt.advproject.gcc.exe.debug.1519929762" name="MCU C Compiler" superClass="com.crt.advproject.gcc.exe.debug.983020627"/>
-							<tool id="com.crt.advproject.gas.exe.debug.1180373552" name="MCU Assembler" superClass="com.crt.advproject.gas.exe.debug.266712343"/>
-							<tool id="com.crt.advproject.link.cpp.exe.debug.1018072824" name="MCU C++ Linker" superClass="com.crt.advproject.link.cpp.exe.debug.373700528"/>
-							<tool id="com.crt.advproject.link.exe.debug.304767195" name="MCU Linker" superClass="com.crt.advproject.link.exe.debug.1927217567"/>
-							<tool id="com.crt.advproject.tool.debug.debug.834832853" name="MCU Debugger" superClass="com.crt.advproject.tool.debug.debug.55220320"/>
-						</toolChain>
-					</folderInfo>
 					<sourceEntries>
 						<entry flags="LOCAL|VALUE_WORKSPACE_PATH" kind="sourcePath" name="startup"/>
 						<entry flags="LOCAL|VALUE_WORKSPACE_PATH" kind="sourcePath" name="CMSIS"/>
