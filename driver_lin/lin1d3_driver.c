@@ -29,47 +29,6 @@ static void slave_task(void *pvParameters);
  * Public functions
  *
  *****************************************************************************/
-
-bool getBit(int num, int i)
-{
-    // Return true if the bit is
-    // set. Otherwise return false
-    return ((num & (1 << i)) != 0);
-}
-
-uint8_t calculate_parity(uint8_t header){
-	uint8_t bit = 0;
-	uint8_t parityEv = 0;
-	uint8_t parityOd = 0;
-
-	//Calculate Even parity bit
-    for (int i = 7; i > 2; i--){
-    	if(7 == i){
-    		bit = getBit(header,  i);
-    		parityEv = bit;
-
-    	}else if (i !=4){     //skip bit 4
-            bit = getBit(header,  i);
-            parityEv = parityEv^bit;
-        }
-    }
-    //Calculate Odd parity
-    for (int i = 6; i > 1; i--){
-
-    	if(6 == i){
-    		bit = getBit(header,  i);
-    		parityOd = bit;
-    	}else if (i !=5){    //skip bit 5
-            bit = getBit(header,  i);
-            parityOd = parityOd^bit;
-        }
-    }
-    //PRINTF("even: %d\r\n", parityEv);
-    //PRINTF("odd: %d\r\n", parityOd);
-    return (parityEv << 1)|parityOd;
-
-}
-
 #if defined(CALC_PARITY)
 /*
  * Calculate parity bits
@@ -81,13 +40,13 @@ uint32_t lin1d3_calculateParity(uint8_t header)
 
 	/* P0 = ID0 ^ ID1 ^ ID2 ^ ID4*/
 	/* Even parity */
-	lin1d4_p0 = ((header >> 7) & 1) ^ ((header >> 6) & 1) ^ ((header >> 5) & 1) ^ ((header >> 3) & 1);
+	lin1d4_p0 = ((header >> 7) & 0x01) ^ ((header >> 6) & 0x01) ^ ((header >> 5) & 0x01) ^ ((header >> 3) & 0x01);
 	/* P1 = !(ID1 ^ ID3 ^ ID4 ^ ID5)*/
 	/* Odd parity */
-	lin1d4_p1 = !( ((header >> 6) & 1) ^ ((header >> 4) & 1) ^ ((header >> 3) & 1) ^ ((header >> 2) & 1) );
+	lin1d4_p1 = !( ((header >> 6) & 0x01) ^ ((header >> 4) & 0x01) ^ ((header >> 3) & 0x01) ^ ((header >> 2) & 0x01) );
 
 	/* Return parity into the header */
-	return ((lin1d4_p0<<1) | lin1d4_p1);
+	return (((lin1d4_p0 & 0x01)<<0x01) | (lin1d4_p1 & 0x01));
 }
 #endif
 
@@ -234,9 +193,15 @@ static void master_task(void *pvParameters)
 #if defined(CALC_PARITY)
         	/* Calculate parity bits */
         	lin1d3_parity = lin1d3_calculateParity(lin1d3_header[1]);
-
+#if defined(LIN1D3_DEBUG)
+        	PRINTF("Parity: %x \r\n" , lin1d3_parity);
+#endif
 			/* Put the parity bits into the header */
 			lin1d3_header[1] |= lin1d3_parity;
+#if defined(LIN1D3_DEBUG)
+        	PRINTF("Header with parity: %x \r\n" , lin1d3_header[1]);
+#endif
+
 #endif
 
         	/* Init the message recevie buffer */
@@ -323,60 +288,66 @@ static void slave_task(void *pvParameters)
     	}
 
 #if defined(CALC_PARITY)
-    	PRINTF("Header: %x \r\n" , lin1d3_header[1]);
+#if defined(LIN1D3_DEBUG)
+    	PRINTF("Received Header: %x \r\n" , lin1d3_header[1]);
+#endif
     	/* Calculate parity bits */
     	lin1d3_parity = lin1d3_calculateParity(lin1d3_header[1]);
 
     	/* Check calculated parity bits are the same than the ones in header*/
     	if ((lin1d3_header[1] & lin1d3_parity) != lin1d3_parity)
     	{
-    		PRINTF("Bad Parity \r\n");
+#if defined(LIN1D3_DEBUG)
+    		PRINTF("Bad Parity %x \r\n", lin1d3_parity);
+#endif
     		/* ID parity bits are not correct we are ignoring message*/
     		continue;
     	}
 #endif
-
-    		/* Get the message ID */
-			ID = (lin1d3_header[1] & 0xFC)>>2;
-			/* If the header is correct, check if the message is in the table */
-			msg_idx = 0;
-			/*Look for the ID in the message table */
-			while(msg_idx < lin1d3_max_supported_messages_per_node_cfg_d) {
-				if(handle->config.messageTable[msg_idx].ID == ID) {
-					break;
-				}
-				msg_idx++;
-			}
-			/* If the message ID was not found then ignore it */
-			if(msg_idx == lin1d3_max_supported_messages_per_node_cfg_d) continue;
-
-			/* Calc the message size */
-			switch(ID&0x03) {
-				case 0x00: message_size = 2;
-				break;
-				case 0x01: message_size = 2;
-				break;
-				case 0x02: message_size = 4;
-				break;
-				case 0x03: message_size = 8;
+    	/* Get the message ID */
+		ID = (lin1d3_header[1] & 0xFC)>>2;
+		/* If the header is correct, check if the message is in the table */
+		msg_idx = 0;
+		/*Look for the ID in the message table */
+		while(msg_idx < lin1d3_max_supported_messages_per_node_cfg_d)
+		{
+			if(handle->config.messageTable[msg_idx].ID == ID) {
 				break;
 			}
+		msg_idx++;
+		}
+		/* If the message ID was not found then ignore it */
+		if(msg_idx == lin1d3_max_supported_messages_per_node_cfg_d) continue;
 
-			message_size+=1;
-			/* Init the message transmit buffer */
-			memset(lin1d3_message, 0, size_of_uart_buffer);
+		/* Calc the message size */
+		switch(ID&0x03) {
+			case 0x00: message_size = 2;
+			break;
+			case 0x01: message_size = 2;
+			break;
+			case 0x02: message_size = 4;
+			break;
+			case 0x03: message_size = 8;
+			break;
+		}
 
-			if(handle->config.messageTable[msg_idx].rx == 0) {
-				/*If the message is in the table call the message callback */
-				/* User shall fill the message */
-				handle->config.messageTable[msg_idx].handler((void*)lin1d3_message);
+		message_size+=1;
+		/* Init the message transmit buffer */
+		memset(lin1d3_message, 0, size_of_uart_buffer);
+
+		if(handle->config.messageTable[msg_idx].rx == 0) {
+			/*If the message is in the table call the message callback */
+			/* User shall fill the message */
+			handle->config.messageTable[msg_idx].handler((void*)lin1d3_message);
 
 #if defined(CALC_CHECKSUM)
-				chsum = checksum(lin1d3_message , message_size);
-				//PRINTF("chsum %x\n\r", chsum);
+			lin1d3_cksm = lin1d3_checksum(lin1d3_message , message_size);
+#if defined(LIN1D3_DEBUG)
+			PRINTF("Calc checksum %x\n\r", lin1d3_cksm);
 #endif
-				/* Send the message data */
-				UART_RTOS_Send(handle->uart_rtos_handle, (uint8_t *)lin1d3_message, message_size-1);
+#endif
+			/* Send the message data */
+			UART_RTOS_Send(handle->uart_rtos_handle, (uint8_t *)lin1d3_message, message_size-1);
 #if defined(CALC_CHECKSUM)
 				UART_RTOS_Send(handle->uart_rtos_handle, &chsum, sizeof(chsum));
 #endif
@@ -385,9 +356,12 @@ static void slave_task(void *pvParameters)
 				/* Wait for Response on the UART */
 				UART_RTOS_Receive(handle->uart_rtos_handle, lin1d3_message, message_size, &n);
 #if defined(CALC_CHECKSUM)
-				chsum = checksum(lin1d3_message , n - 1);
-				if(chsum != lin1d3_message[n-1])
+				lin1d3_cksm = lin1d3_checksum(lin1d3_message , n - 1);
+				if(lin1d3_cksm != lin1d3_message[n-1])
 				{
+#if defined(LIN1D3_DEBUG)
+					PRINTF("Received checksum %x\n\r", lin1d3_message[n-1]);
+#endif
 					continue;
 				}
 #endif

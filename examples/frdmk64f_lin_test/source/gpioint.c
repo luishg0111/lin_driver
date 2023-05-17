@@ -13,8 +13,8 @@
 #include "task.h"
 #include "queue.h"
 
-volatile bool button2_pressed;
-volatile bool button1_pressed;
+volatile bool sw3_pressed;
+volatile bool sw2_pressed;
 
 
 /*******************************************************************************
@@ -27,7 +27,7 @@ volatile bool button1_pressed;
 void BOARD_SW2_IRQ_HANDLER(void)
 {
 	BaseType_t xHigherPriorityTaskWoken;
-	button1_pressed = 1;
+	sw2_pressed = 1;
     /* Clear external interrupt flag. */
     GPIO_PortClearInterruptFlags(BOARD_SW2_GPIO, 1U << BOARD_SW2_GPIO_PIN);
 
@@ -53,7 +53,7 @@ void BOARD_SW2_IRQ_HANDLER(void)
 void BOARD_SW3_IRQ_HANDLER(void)
 {
 	BaseType_t xHigherPriorityTaskWoken;
-	button2_pressed = 1;
+	sw3_pressed = 1;
     /* Clear external interrupt flag. */
     GPIO_PortClearInterruptFlags(BOARD_SW3_GPIO, 1U << BOARD_SW3_GPIO_PIN);
 

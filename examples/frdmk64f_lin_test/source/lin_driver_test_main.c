@@ -27,6 +27,9 @@
  ******************************************************************************/
 #define MASTER// change to MASTER SLAVE_A or SLAVE_B
 #define SLAVE_A
+//#define SLAVE_B
+
+#define MAIN_DEBUG
 
 /* UART instance and clock */
 #define MASTER_UART UART3
@@ -57,7 +60,7 @@
 #define BOARD_SW_IRQ         BOARD_SW3_IRQ
 #define BOARD_SW_IRQ_HANDLER BOARD_SW3_IRQ_HANDLER
 
-
+#define COUNTER_1SEG 	10
 /*******************************************************************************
  * Prototypes
  ******************************************************************************/
@@ -70,12 +73,13 @@ static void	message_2_callback_local_slave(void* message);
 
 #if defined(SLAVE_B)
 static void	message_1_callback_slave(void* message);
+static void	message_2_callback_slave(void* message);
 #endif
 /*******************************************************************************
  * Variables
  ******************************************************************************/
-extern volatile bool button2_pressed;
-extern volatile bool button1_pressed;
+extern volatile bool sw3_pressed;
+extern volatile bool sw2_pressed;
 #if defined(SLAVE_A)
 static uint8_t ledStatus = 0;
 #endif
@@ -160,8 +164,11 @@ static void test_task(void *pvParameters)
 	node_config.skip_uart_init = 0;
 	memset(node_config.messageTable,0, (sizeof(node_config.messageTable[0])*lin1d3_max_supported_messages_per_node_cfg_d));
 	node_config.messageTable[0].ID = app_message_id_1_d;
-	node_config.messageTable[0].rx = 0;
+	node_config.messageTable[0].rx = 1;
 	node_config.messageTable[0].handler = message_1_callback_slave;
+	node_config.messageTable[1].ID = app_message_id_2_d;
+	node_config.messageTable[1].rx = 0;
+	node_config.messageTable[1].handler = message_2_callback_slave;
 	/* Init Slave Node*/
 	slave_handle = lin1d3_InitNode(node_config);
 #endif
@@ -204,28 +211,21 @@ static void test_task(void *pvParameters)
 	{
 		error = kStatus_Success;
 	}
-
-	int conta = 0;
-
+#if defined(MASTER)
+	int time_counter = 0;
+#endif
 	while (kStatus_Success == error)
     {
 #if defined(MASTER)
-
-		if (conta>9){
-			conta =0 ;
+		time_counter++;
+		if ((time_counter % COUNTER_1SEG) == 0)
+		{
     		lin1d3_masterSendMessage(master_handle, app_message_id_1_d);
-    		vTaskDelay(100);
-    		conta++;
     	}
     	lin1d3_masterSendMessage(master_handle, app_message_id_2_d);
     	vTaskDelay(100);
-    	conta++;
-    	lin1d3_masterSendMessage(master_handle, app_message_id_3_d);
-    	conta++;
 #endif
-    	vTaskDelay(100);
     }
-
     vTaskSuspend(NULL);
 }
 
@@ -235,28 +235,28 @@ static void	message_1_callback_local_slave(void* message)
 {
 	uint8_t* message_data = (uint8_t*)message;
 
-	PRINTF("Slave A request\r\n");
+	PRINTF("Slave A - TX \r\n");
 	//Transmit LED status
 	switch(ledStatus){
-		case 0: //OFF
+		case 0://OFF
 			GPIO_PortSet(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 			GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
 			GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
 			message_data[0] = 0x00;
 			break;
-		case 1:	//RED
+		case 1://RED
 			GPIO_PortClear(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 			GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
 			GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
 			message_data[0] = 0x01;
 			break;
-		case 2: 	//GREEN
+		case 2://GREEN
 			GPIO_PortSet(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 			GPIO_PortClear(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
 			GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
 			message_data[0] = 0x02;
 			break;
-		case 3:		//blue
+		case 3://BLUE
 			GPIO_PortSet(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 			GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
 			GPIO_PortClear(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
@@ -268,73 +268,156 @@ static void	message_1_callback_local_slave(void* message)
 		ledStatus = 0;
 
 	message_data[1] = 0xF0;
+
+#if defined(MAIN_DEBUG)
+	PRINTF("Local Slave send message ID1 %d,%d\r\n", message_data[0], message_data[1]);
+#endif
+
 }
 
 static void	message_2_callback_local_slave(void* message)
 {
 	uint8_t* message_data = (uint8_t*)message;
-	PRINTF("Slave A callback \r\n");
-	if(message_data[0] == 0x00){				//0b00
+	PRINTF("Slave A - RX \r\n");
+	if(message_data[0] == 0x00)		//0b00
+	{
 		PRINTF("SW2 & SW3 No press \r\n");
 		GPIO_PortSet(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 		GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
 		GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
-	}else if(message_data[0] == 0x01){			//0b10
+	}
+	else if(message_data[0] == 0x01)	//0b10
+	{
 		PRINTF("SW2 Press \r\n");
 		GPIO_PortClear(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 		GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
 		GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
-	}else if(message_data[0] == 0x02){			//0b01
+	}
+	else if(message_data[0] == 0x02)	//0b01
+	{
 		PRINTF("SW3 Press  \r\n");
 		GPIO_PortClear(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 		GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
 		GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
-	}else if(message_data[0] == 0x03){			//0b11
+	}
+	else if(message_data[0] == 0x03)	//0b11
+	{
 		PRINTF("SW2 & SW3 Press  \r\n");
 		GPIO_PortClear(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 		GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
 		GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
-	}else{
-		PRINTF("Slave recieved wrong data %d,%d\r\n", message_data[0], message_data[1]);
 	}
-	PRINTF("Local Slave got response to message 1 %d,%d\r\n", message_data[0], message_data[1]);
+	else
+	{
+#if defined(MAIN_DEBUG)
+		PRINTF("Slave wrong data %d,%d\r\n", message_data[0], message_data[1]);
+#endif
+	}
+#if defined(MAIN_DEBUG)
+	PRINTF("Local Slave received message ID2: %d,%d\r\n", message_data[0], message_data[1]);
+#endif
 }
 #endif
 
 #if defined(SLAVE_B)
+
 static void	message_1_callback_slave(void* message)
 {
 	uint8_t* message_data = (uint8_t*)message;
-	PRINTF("Slave B\r\n");
 
-	if(button1_pressed == 0 && button2_pressed == 0 ){
+	PRINTF("Slave B - RX \r\n");
+	if(message_data[0] == 0x00)		//0b00
+		{
+			PRINTF("LED OFF \r\n");
+			GPIO_PortSet(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
+			GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
+			GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
+		}
+		else if(message_data[0] == 0x01)	//0b10
+		{
+			PRINTF("LED RED \r\n");
+			GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
+			GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u << BOARD_LED_GREEN_GPIO_PIN);
+			GPIO_PortClear(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
+		}
+		else if(message_data[0] == 0x02)	//0b01
+		{
+			PRINTF("LED GREEN \r\n");
+			GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
+			GPIO_PortSet(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
+			GPIO_PortClear(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
+		}
+		else if(message_data[0] == 0x03)	//0b11
+		{
+			PRINTF("LED BLUE \r\n");
+			GPIO_PortClear(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
+			GPIO_PortSet(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
+			GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
+		}
+		else{
+	#if defined(MAIN_DEBUG)
+			PRINTF("Slave wrong data %d,%d\r\n", message_data[0], message_data[1]);
+	#endif
+		}
+	message_data[1] = 0xF0;
+
+#if defined(MAIN_DEBUG)
+	PRINTF("Slave received message 1 %d,%d\r\n", message_data[0], message_data[1]);
+#endif
+}
+
+static void	message_2_callback_slave(void* message)
+{
+	uint8_t* message_data = (uint8_t*)message;
+	PRINTF("Slave B - TX\r\n");
+
+	if(sw2_pressed == 0 && sw3_pressed == 0 )
+	{
 		message_data[0] = 0x00;		//0b00
-		PRINTF("LED BLUE \r\n");
-		GPIO_PortClear(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
+		PRINTF("LED OFF \r\n");
+		GPIO_PortSet(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
+		GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
+		GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
 	}
-	else if(button1_pressed == 1 && button2_pressed == 0 ){
-		message_data[0] = 0x02;		//0b10
-		button1_pressed = 0;
-		PRINTF("LED RED \r\n");
-		GPIO_PortClear(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
-	}
-	else if(button1_pressed == 0 && button2_pressed == 1 ){
+	else if(sw2_pressed == 1 && sw3_pressed == 0 )
+	{
 		message_data[0] = 0x01;		//0b01
+		sw2_pressed = 0;
 		PRINTF("LED RED \r\n");
-		button2_pressed = 0;
+		GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
+		GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u << BOARD_LED_GREEN_GPIO_PIN);
 		GPIO_PortClear(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 	}
-	else if(button1_pressed == 1 && button2_pressed == 1 ){
+	else if(sw2_pressed == 0 && sw3_pressed == 1 )
+	{
+		message_data[0] = 0x02;		//0b01
+		sw3_pressed = 0;
+		PRINTF("LED RED \r\n");
+		GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
+		GPIO_PortSet(BOARD_LED_GREEN_GPIO, 1u << BOARD_LED_GREEN_GPIO_PIN);
+		GPIO_PortClear(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
+	}
+	else if(sw2_pressed == 1 && sw3_pressed == 1 )
+	{
 		message_data[0] = 0x03;		//0b11
-		button1_pressed = 0;
-		button2_pressed = 0;
+		sw2_pressed = 0;
+		sw3_pressed = 0;
 		PRINTF("LED GREEN \r\n");
+		GPIO_PortSet(BOARD_LED_BLUE_GPIO, 1u << BOARD_LED_BLUE_GPIO_PIN);
+		GPIO_PortSet(BOARD_LED_RED_GPIO, 1u << BOARD_LED_RED_GPIO_PIN);
 		GPIO_PortClear(BOARD_LED_GREEN_GPIO, 1u <<BOARD_LED_GREEN_GPIO_PIN);
 	}
 	else{
-		PRINTF("Slave got wrong data %d,%d\r\n", message_data[0], message_data[1]);
+#if defined(MAIN_DEBUG)
+		PRINTF("Slave wrong data %d,%d\r\n", message_data[0], message_data[1]);
+#endif
 	}
+#if defined(MAIN_DEBUG)
+	PRINTF("Slave sent message ID2: %d,%d\r\n", message_data[0], message_data[1]);
+#endif
 
 	message_data[1]= 0x0F;
 }
+
+
 #endif

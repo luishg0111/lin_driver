@@ -12,5 +12,6 @@
 
 #define CALC_PARITY
 //#define CALC_CHECKSUM
+//#define LIN1D3_DEBUG
 
 #endif /* LIN1D3_DRIVER_CFG_H_ */
